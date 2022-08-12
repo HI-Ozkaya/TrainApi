@@ -10,7 +10,6 @@ namespace TrainApi.Services
         public async Task<TrainReservationCommandResponse> MakeReservation(TrainReservationCommand command)
         {
             TrainReservationCommandResponse response = new TrainReservationCommandResponse();
-            response.RezervasyonYapilabilir = false;
             bool flex = command.KisilerFarkliVagonlaraYerlestirilebilir;
             int number = command.RezervasyonYapilacakKisiSayisi;
             foreach (var item in command.Tren.Vagonlar)
@@ -41,7 +40,7 @@ namespace TrainApi.Services
                         response.YerlesimAyrinti.Add(vagonSeat);
                     }
                 }
-                if (number<=0)
+                if (number==0)
                 {
                     response.RezervasyonYapilabilir = true;
                     break;
