@@ -9,46 +9,72 @@ namespace TrainApi.Services
     {
         public async Task<TrainReservationCommandResponse> MakeReservation(TrainReservationCommand command)
         {
-            TrainReservationCommandResponse response = new TrainReservationCommandResponse();
+            var response = new TrainReservationCommandResponse();
             bool flex = command.KisilerFarkliVagonlaraYerlestirilebilir;
             int number = command.RezervasyonYapilacakKisiSayisi;
-            foreach (var item in command.Tren.Vagonlar)
+
+            if (flex)
             {
-                int onlineLimit = item.Kapasite * 70 / 100;
-                if (item.DoluKoltukAdet>=onlineLimit)
+                int emptySeatsForOnline = 0;
+                foreach (var item in command.Tren.Vagonlar)
                 {
-                    continue;
-                }
-                else
-                {
-                    int bosYer = onlineLimit - item.DoluKoltukAdet;
-                    if (bosYer > number)
+                    int onlineLimit = item.Kapasite * 70 / 100;
+                    if (item.DoluKoltukAdet < onlineLimit)
                     {
-                        SeatDetail vagonSeat = new SeatDetail();
-                        vagonSeat.KisiSayisi = number;
-                        vagonSeat.VagonAdi = item.Ad;
-                        response.YerlesimAyrinti.Add(vagonSeat);
-                        number = 0;
-                    }
-                    else if (flex)
-                    {
-                        int oldNumber = number;
-                        number = number - bosYer;
-                        SeatDetail vagonSeat = new SeatDetail();
-                        vagonSeat.KisiSayisi = oldNumber-number;
-                        vagonSeat.VagonAdi = item.Ad;
-                        response.YerlesimAyrinti.Add(vagonSeat);
+                        emptySeatsForOnline += onlineLimit - item.DoluKoltukAdet;
                     }
                 }
-                if (number==0)
+
+                if (emptySeatsForOnline>=number)
                 {
-                    response.RezervasyonYapilabilir = true;
-                    break;
+                    response.RezervasyonYapilabilir= true;
+                    foreach (var item in command.Tren.Vagonlar)
+                    {
+                        int onlineLimit = item.Kapasite * 70 / 100;
+                        int avaliableOnlineSeat = onlineLimit - item.DoluKoltukAdet;
+                        if (avaliableOnlineSeat > 0)
+                        {
+                            if (avaliableOnlineSeat>number)
+                            {
+                                SeatDetail vagonSeat = new SeatDetail
+                                {
+                                    KisiSayisi = avaliableOnlineSeat - number + item.DoluKoltukAdet,
+                                    VagonAdi = item.Ad
+                                };
+                                response.YerlesimAyrinti.Add(vagonSeat);
+                                break;
+                            }
+                            else
+                            {
+                                SeatDetail vagonSeat = new SeatDetail
+                                {
+                                    KisiSayisi = avaliableOnlineSeat + item.DoluKoltukAdet,
+                                    VagonAdi = item.Ad
+                                };
+                                response.YerlesimAyrinti.Add(vagonSeat);
+                                number -= number - avaliableOnlineSeat;
+                            }
+                        }
+                    }
                 }
             }
-            if (number>0)
+            else
             {
-                response.YerlesimAyrinti.Clear();
+                foreach (var item in command.Tren.Vagonlar)
+                {
+                    int onlineLimit = item.Kapasite * 70 / 100;
+                    if (item.DoluKoltukAdet+number < onlineLimit)
+                    {
+                        response.RezervasyonYapilabilir = true;
+                        SeatDetail vagonSeat = new SeatDetail
+                        {
+                            KisiSayisi = item.DoluKoltukAdet + number + item.DoluKoltukAdet,
+                            VagonAdi = item.Ad
+                        };
+                        response.YerlesimAyrinti.Add(vagonSeat);
+                        break;
+                    }
+                }
             }
             return response;
         }
